@@ -1,0 +1,10 @@
+ultralytics
+openvino
+openvino-dev
+scikit-learn
+tensorflow
+paho-mqtt
+requests
+opencv-python
+numpy
+python-dotenv
