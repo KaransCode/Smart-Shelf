@@ -21,6 +21,29 @@ function App() {
         const data = JSON.parse(event.data);
         
         if (data.type === 'recipe') {
+          // Play Digital Beep
+          try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // High pitch beep
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.3); // Beep for 300ms
+            
+            // Trigger Voice Assistant (after the beep)
+            setTimeout(() => {
+              const utterance = new SpeechSynthesisUtterance(`Smart Shelf Alert. Your ${data.item} is expiring soon.`);
+              utterance.rate = 0.95; // Slightly slower, more robotic/clear voice
+              window.speechSynthesis.speak(utterance);
+            }, 400);
+          } catch(e) { 
+            console.log('Audio Autoplay Blocked or Unsupported:', e); 
+          }
+
           setRecipes(prev => ({ ...prev, [data.item]: data.recipe }));
         } else if (data.type === 'clear') {
           setInventory([]);

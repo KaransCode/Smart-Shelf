@@ -15,6 +15,10 @@ __pycache__/
 # Environment variables (SECURITY RISK)
 .env
 
+# AI Model Weights (Too large for GitHub)
+*.pt
+weights/
+
 # OS generated files
 .DS_Store
 Thumbs.db

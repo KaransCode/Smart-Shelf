@@ -29,13 +29,16 @@ def on_message(client, userdata, msg):
         pass
 
 def get_category(class_name):
-    produce = ['apple', 'banana', 'orange', 'broccoli', 'carrot']
+    produce = ['apple', 'banana', 'orange', 'broccoli', 'carrot', 'strawberry', 'mango', 'tomato', 'bell pepper', 'cucumber', 'avocado']
+    dairy_bakery = ['bread', 'cheese', 'milk carton', 'egg']
     fast_food = ['hot dog', 'pizza', 'donut', 'cake', 'sandwich']
     kitchenware = ['bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl']
+    
     if class_name in produce: return "Fresh Produce"
+    if class_name in dairy_bakery: return "Dairy & Bakery"
     if class_name in fast_food: return "Fast Food"
     if class_name in kitchenware: return "Kitchenware"
-    return "Other"
+    return "Other Food"
 
 def main():
     global camera_active, tracked_items
@@ -53,8 +56,18 @@ def main():
     except Exception as e:
         print(f"MQTT Connection failed: {e}. Is Node.js backend running?")
 
-    model = YOLO('yolov8n.pt') 
-    food_classes = ['apple', 'banana', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'sandwich', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl']
+    print("Loading YOLO-World Zero-Shot Model (yolov8s-world.pt)...")
+    # Upgrade to YOLO-World for zero-shot custom food detection
+    model = YOLO('yolov8s-world.pt') 
+    
+    # Define our massively expanded custom zero-shot classes
+    food_classes = [
+        'apple', 'banana', 'orange', 'broccoli', 'carrot', 'strawberry', 'mango', 
+        'tomato', 'bell pepper', 'cucumber', 'avocado', 'bread', 'cheese', 'milk carton', 
+        'egg', 'hot dog', 'pizza', 'donut', 'cake', 'sandwich', 'bottle', 'wine glass', 
+        'cup', 'fork', 'knife', 'spoon', 'bowl'
+    ]
+    model.set_classes(food_classes)
 
     cap = None
     last_publish_time = 0

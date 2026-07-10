@@ -6,6 +6,7 @@ import Aedes from 'aedes';
 import { createServer } from 'net';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import NodeCache from 'node-cache';
+import twilio from 'twilio';
 
 dotenv.config();
 
@@ -17,6 +18,12 @@ const mqttPort = 1883;
 // Initialize Gemini and Cache
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const recipeCache = new NodeCache({ stdTTL: 3600 }); // Cache recipes for 1 hour to avoid spam
+const smsCache = new NodeCache({ stdTTL: 86400 }); // SMS Cooldown for 24 hours
+
+// Initialize Twilio Enterprise Fallback Mode
+const twilioClient = process.env.TWILIO_ACCOUNT_SID 
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) 
+  : null;
 
 app.use(cors());
 app.use(express.json());
@@ -103,6 +110,26 @@ aedes.on('publish', async (packet, client) => {
           recipe: recipeText
         });
         clients.forEach(c => c.write(`data: ${recipePayload}\n\n`));
+
+        // Trigger Push Notification (only once per item per day)
+        if (!smsCache.has(data.item)) {
+          smsCache.set(data.item, true);
+          const smsBody = `Smart-Shelf Alert 🚨\nYour ${data.item} is expiring!\nZero-Waste Recipe: ${recipeText}`;
+          
+          if (twilioClient && process.env.USER_PHONE_NUMBER) {
+            await twilioClient.messages.create({
+              body: smsBody,
+              from: process.env.TWILIO_PHONE_NUMBER,
+              to: process.env.USER_PHONE_NUMBER
+            }).catch(err => console.error("Twilio Error:", err));
+            console.log(`[TWILIO] Real SMS Sent to ${process.env.USER_PHONE_NUMBER} for ${data.item}!`);
+          } else {
+            console.log(`\n=================================================`);
+            console.log(`[MOCK SMS NOTIFICATION] TO USER'S PHONE`);
+            console.log(smsBody);
+            console.log(`=================================================\n`);
+          }
+        }
       }
     } catch (e) {
       console.error("Error processing telemetry:", e);
