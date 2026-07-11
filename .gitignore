@@ -22,3 +22,8 @@ weights/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Hackathon / Prototype files
+desktop-ui-mockup.html
+*.db
+*.db-journal

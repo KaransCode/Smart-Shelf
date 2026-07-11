@@ -160,6 +160,42 @@ app.post('/api/clear', (req, res) => {
   res.json({ success: true });
 });
 
+// Permanent Database Endpoints
+app.get('/api/inventory', async (req, res) => {
+  try {
+    const items = await prisma.item.findMany({
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json(items);
+  } catch (error) {
+    console.error("DB Fetch Error:", error);
+    res.status(500).json({ error: "Failed to fetch inventory" });
+  }
+});
+
+app.post('/api/inventory', async (req, res) => {
+  try {
+    const { name, category, decayStatus } = req.body;
+    const newItem = await prisma.item.create({
+      data: { name, category: category || 'General', decayStatus }
+    });
+    res.json({ success: true, item: newItem });
+  } catch (error) {
+    console.error("DB Save Error:", error);
+    res.status(500).json({ error: "Failed to save item" });
+  }
+});
+
+app.delete('/api/inventory/:id', async (req, res) => {
+  try {
+    await prisma.item.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("DB Delete Error:", error);
+    res.status(500).json({ error: "Failed to delete item" });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend API running on http://localhost:${port}`);
 });

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart-Shelf Mobile UI Concept</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            /* Deep purple/blue gradient from reference */
+            background: linear-gradient(135deg, #18093d, #251052, #1b3870, #0a1128);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            padding: 2rem;
+            overflow-x: auto;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Abstract glowing orbs in background */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+        }
+        .orb-1 {
+            width: 300px; height: 300px;
+            background: #9d4edd;
+            top: -100px; left: 10%;
+        }
+        .orb-2 {
+            width: 400px; height: 400px;
+            background: #00b4d8;
+            bottom: -150px; right: 10%;
+        }
+
+        /* Mobile Device Frame */
+        .phone {
+            width: 320px;
+            height: 680px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 40px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.1);
+            padding: 2rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top status bar notch simulation */
+        .phone::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 25px;
+            background: rgba(0,0,0,0.2);
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 1.2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Typography */
+        h1 { font-size: 2rem; font-weight: 800; text-align: center; line-height: 1.2; margin-bottom: 2rem; }
+        h2 { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
+        p { color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; line-height: 1.4; }
+
+        /* Screen 1: Splash */
+        .screen-1 { justify-content: center; align-items: center; text-align: center; }
+        .mascot-img {
+            width: 180px;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin-bottom: 2rem;
+            animation: float 4s ease-in-out infinite;
+            box-shadow: 0 20px 40px rgba(157, 78, 221, 0.3);
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .btn-main {
+            background: linear-gradient(90deg, #e0eaf5, #ffffff);
+            color: #1e1e2f;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: 800;
+            width: 100%;
+            margin-top: auto;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(255,255,255,0.1);
+        }
+
+        /* Screen 2: Dashboard */
+        .header-small {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1.5rem; margin-top: 1rem;
+        }
+        .avatar { width: 35px; height: 35px; background: linear-gradient(135deg, #00b4d8, #9d4edd); border-radius: 50%; }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .tall-card { grid-row: span 2; background: linear-gradient(180deg, rgba(157,78,221,0.3), rgba(255,255,255,0.05)); }
+        
+        .list-card {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+        }
+        .list-card span { font-weight: 600; font-size: 0.9rem; }
+        .arrow { color: rgba(255,255,255,0.5); }
+
+    </style>
+</head>
+<body>
+
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <!-- Screen 1: Splash / Onboarding -->
+    <div class="phone screen-1">
+        <h1 style="margin-top: 3rem;">Smart-Shelf<br>Assistant</h1>
+        
+        <img src="file:///C:/Users/User/.gemini/antigravity/brain/c4b28850-e131-4c56-8a05-d6e881c2a82c/robot_mascot_1783701525817.png" alt="Smart Robot" class="mascot-img">
+        
+        <div style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 1rem;">
+            V2.0 Core
+        </div>
+        
+        <p style="margin-bottom: 2rem;">Preventing food waste.<br>How can I help you today?</p>
+        
+        <button class="btn-main">Get started</button>
+    </div>
+
+    <!-- Screen 2: Main Dashboard -->
+    <div class="phone">
+        <div class="header-small">
+            <div>
+                <h2 style="font-size: 1.4rem;">Hey Chef,</h2>
+                <p style="font-size: 0.8rem;">Your fridge looks great today</p>
+            </div>
+            <div class="avatar"></div>
+        </div>
+
+        <div class="grid-2">
+            <div class="glass-card tall-card" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: radial-gradient(circle, #00b4d8, transparent); margin-bottom: auto;"></div>
+                <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Uncover zero-waste recipes via AI</h3>
+                <button style="background: #fff; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 0.8rem;">Let's cook</button>
+            </div>
+            
+            <div class="glass-card">
+                <span style="font-size: 1.2rem; display: block; margin-bottom: 5px;">🎥</span>
+                <p style="font-size: 0.8rem; font-weight: 600; color: #fff;">Start AI<br>Camera</p>
+            </div>
+            
+            <div class="glass-card">
+                <span style="font-size: 1.2rem; display: block; margin-bottom: 5px;">🗑️</span>
+                <p style="font-size: 0.8rem; font-weight: 600; color: #fff;">Clear<br>Shelf</p>
+            </div>
+        </div>
+
+        <h2 style="font-size: 1rem; margin-bottom: 1rem;">Decay Forecast</h2>
+        
+        <div class="list-card">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: rgba(239, 68, 68, 0.2); padding: 5px; border-radius: 8px;">🚨</span>
+                <span>Banana (2 days)</span>
+            </div>
+            <span class="arrow">→</span>
+        </div>
+        
+        <div class="list-card">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: rgba(16, 185, 129, 0.2); padding: 5px; border-radius: 8px;">🍏</span>
+                <span>Apple (8 days)</span>
+            </div>
+            <span class="arrow">→</span>
+        </div>
+        
+        <div class="list-card" style="background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(157,78,221,0.1));">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: rgba(157, 78, 221, 0.2); padding: 5px; border-radius: 8px;">👨‍🍳</span>
+                <span>Generate Recipe</span>
+            </div>
+            <span class="arrow">→</span>
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -3,6 +3,8 @@ import json
 import cv2
 import paho.mqtt.client as mqtt
 from ultralytics import YOLO
+import requests
+from pyzbar.pyzbar import decode
 
 # Global control state
 camera_active = False
@@ -31,7 +33,7 @@ def on_message(client, userdata, msg):
 def get_category(class_name):
     produce = ['apple', 'banana', 'orange', 'broccoli', 'carrot', 'strawberry', 'mango', 'tomato', 'bell pepper', 'cucumber', 'avocado']
     dairy_bakery = ['bread', 'cheese', 'milk carton', 'egg']
-    fast_food = ['hot dog', 'pizza', 'donut', 'cake', 'sandwich']
+    fast_food = ['hot dog', 'pizza', 'frosted donut', 'cake', 'sandwich']
     kitchenware = ['bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl']
     
     if class_name in produce: return "Fresh Produce"
@@ -57,14 +59,14 @@ def main():
         print(f"MQTT Connection failed: {e}. Is Node.js backend running?")
 
     print("Loading YOLO-World Zero-Shot Model (yolov8s-world.pt)...")
-    # Upgrade to YOLO-World for zero-shot custom food detection
+    # Reverting to Small model for high-speed CPU performance
     model = YOLO('yolov8s-world.pt') 
     
     # Define our massively expanded custom zero-shot classes
     food_classes = [
-        'apple', 'banana', 'orange', 'broccoli', 'carrot', 'strawberry', 'mango', 
+        'apple', 'banana', 'orange', 'broccoli', 'carrot', 'strawberry', 'a ripe mango', 'a green mango', 'mango',
         'tomato', 'bell pepper', 'cucumber', 'avocado', 'bread', 'cheese', 'milk carton', 
-        'egg', 'hot dog', 'pizza', 'donut', 'cake', 'sandwich', 'bottle', 'wine glass', 
+        'egg', 'hot dog', 'pizza', 'frosted donut', 'cake', 'sandwich', 'bottle', 'wine glass', 
         'cup', 'fork', 'knife', 'spoon', 'bowl'
     ]
     model.set_classes(food_classes)
@@ -72,6 +74,7 @@ def main():
     cap = None
     last_publish_time = 0
     PUBLISH_INTERVAL = 3.0 
+    barcode_cache = {}
 
     try:
         while True:
@@ -88,7 +91,53 @@ def main():
             ret, frame = cap.read()
             if not ret:
                 break
+                
+            # Resize frame for faster processing (improves FPS on low-end CPUs)
+            frame = cv2.resize(frame, (640, 480))
             
+            # --- BARCODE SCANNING (Phase 9) ---
+            # PyZbar is incredibly CPU intensive. We only run it on grayscale to save compute!
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            barcodes = decode(gray_frame)
+            current_time = time.time()
+            for barcode in barcodes:
+                b_data = barcode.data.decode('utf-8')
+                if b_data not in barcode_cache or (current_time - barcode_cache[b_data]) > 60:
+                    barcode_cache[b_data] = current_time
+                    print(f"Barcode detected: {b_data}")
+                    try:
+                        headers = {'User-Agent': 'SmartShelf-HackathonProject/1.0'}
+                        resp = requests.get(f"https://world.openfoodfacts.org/api/v0/product/{b_data}.json", headers=headers, timeout=5)
+                        
+                        product_name = f"Scanned Item ({b_data})"
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            if data.get('status') == 1:
+                                name = data['product'].get('product_name')
+                                if name:
+                                    product_name = name.title()
+                                
+                        print(f"Resolved to: {product_name}")
+                        # Send MQTT directly to UI
+                        payload = {
+                            "item": product_name,
+                            "category": "Packaged Goods",
+                            "decay_status": 1.0,
+                            "estimated_days_left": 30 # Default 30 days
+                        }
+                        client.publish("smart-shelf/telemetry", json.dumps(payload))
+                    except Exception as e:
+                        print(f"Barcode API error: {e}")
+                        # Network error fallback
+                        payload = {
+                            "item": f"Offline Item ({b_data})",
+                            "category": "Packaged Goods",
+                            "decay_status": 1.0,
+                            "estimated_days_left": 30
+                        }
+                        client.publish("smart-shelf/telemetry", json.dumps(payload))
+
+            # --- YOLO OBJECT DETECTION ---
             results = model(frame, stream=True, verbose=False)
             current_detected = set()
 
@@ -99,26 +148,55 @@ def main():
                     class_name = model.names[cls_id]
                     
                     if class_name in food_classes:
-                        current_detected.add(class_name)
-                        x1, y1, x2, y2 = map(int, box.xyxy[0])
                         conf = float(box.conf[0])
                         
-                        freshness = 1.0
-                        if class_name in tracked_items:
-                            freshness = tracked_items[class_name]['freshness']
+                        # --- SMART THRESHOLDING ---
+                        # Certain classes (donut, bread, orange) easily "steal" the mango detection 
+                        # because their shapes are similar. We force them to have a much higher confidence!
+                        req_threshold = 0.35
+                        if class_name in ['frosted donut', 'bread', 'orange', 'cake', 'egg']:
+                            req_threshold = 0.70 # Must be 70% sure it's a donut/bread/orange!
+                        elif 'mango' in class_name:
+                            req_threshold = 0.20 # Mangoes are notoriously hard for this model, accept weak guesses (20%)!
+                            
+                        if conf < req_threshold:
+                            continue
+                            
+                        # Normalize class names (so 'a green mango' just becomes 'mango')
+                        normalized_class = class_name
+                        if "mango" in class_name:
+                            normalized_class = "mango"
+                            
+                        current_detected.add(normalized_class)
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
                         
-                        label = f"{class_name.capitalize()} {conf:.2f} ({int(freshness*100)}%)"
+                        freshness = 1.0
+                        if normalized_class in tracked_items:
+                            freshness = tracked_items[normalized_class]['freshness']
+                        
+                        label = f"{normalized_class.capitalize()} {conf:.2f} ({int(freshness*100)}%)"
                         color = (0, int(255 * freshness), int(255 * (1 - freshness)))
                         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                         cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-            current_time = time.time()
+            # Draw barcode boxes
+            for barcode in barcodes:
+                (x, y, w, h) = barcode.rect
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
+
             for item in current_detected:
                 if item not in tracked_items:
                     tracked_items[item] = {'freshness': 1.0, 'last_seen': current_time}
                 else:
                     time_diff = current_time - tracked_items[item]['last_seen']
-                    tracked_items[item]['freshness'] = max(0.0, tracked_items[item]['freshness'] - (time_diff * 0.02))
+                    
+                    # If item was out of frame for more than 5 seconds, treat it as a NEW item (reset freshness to 100%)
+                    if time_diff > 5.0:
+                        tracked_items[item]['freshness'] = 1.0
+                    # Only degrade if it's continuously in frame
+                    elif time_diff < 2.0:
+                        tracked_items[item]['freshness'] = max(0.0, tracked_items[item]['freshness'] - (time_diff * 0.02))
+                        
                     tracked_items[item]['last_seen'] = current_time
 
             if current_time - last_publish_time > PUBLISH_INTERVAL:
